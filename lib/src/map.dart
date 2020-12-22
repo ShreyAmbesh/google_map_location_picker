@@ -91,6 +91,11 @@ class MapPickerState extends State<MapPicker> {
 
   String _address;
 
+  TextEditingController _controller;
+
+
+  final _locationNameFormKey = GlobalKey<FormState>();
+
   void _onToggleMapTypePressed() {
     final MapType nextType =
         MapType.values[(_currentMapType.index + 1) % MapType.values.length];
@@ -231,37 +236,43 @@ class MapPickerState extends State<MapPicker> {
                 children: <Widget>[
                   Flexible(
                     flex: 20,
-                    child: FutureLoadingBuilder<String>(
-                        future: getAddress(locationProvider.lastIdleLocation),
-                        mutable: true,
-                        loadingIndicator: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            CircularProgressIndicator(),
-                          ],
-                        ),
-                        builder: (context, address) {
-                          _address = address;
-                          return Text(
-                            address ?? 'Unnamed place',
-                            style: widget.resultCardTextStyle ??
-                                TextStyle(fontSize: 18),
-                          );
-                        }),
+                    child:  Form(
+                      key: _locationNameFormKey,
+                      child:TextFormField(
+                        validator:  (value) {
+                          if (value.isEmpty) {
+                            return 'Please enter a location name';
+                          } else {
+                            return null;
+                          }
+                        },
+                        controller: _controller,
+                        decoration: InputDecoration(
+                            hintText: 'Give a name to the location',
+                            hintStyle: Theme.of(context).textTheme.bodyText2,
+                            filled: true,
+                            fillColor: Color(0xFFEEEEEE),
+                            contentPadding: EdgeInsets.symmetric(
+                                vertical: 18, horizontal: 24),
+                            border: OutlineInputBorder(
+                                borderSide: BorderSide.none,
+                                borderRadius: BorderRadius.circular(15.0))))),
                   ),
                   Spacer(),
                   FloatingActionButton(
                     backgroundColor: widget.fabsColor,
                     onPressed: () {
-                      Navigator.of(context).pop({
-                        'location': LocationResult(
-                          latLng: locationProvider.lastIdleLocation,
-                          address: _address,
-                        )
-                      });
+                      if(_locationNameFormKey.currentState.validate()) {
+                        Navigator.of(context).pop({
+                          'location': LocationResult(
+                            latLng: locationProvider.lastIdleLocation,
+                            address: _controller.text,
+                          )
+                        });
+                      }
                     },
                     child: widget.resultCardConfirmIcon ??
-                        Icon(Icons.arrow_forward),
+                        Icon(Icons.arrow_forward,color:fabsIconsColor),
                   ),
                 ],
               ),
@@ -272,21 +283,21 @@ class MapPickerState extends State<MapPicker> {
     );
   }
 
-  Future<String> getAddress(LatLng location) async {
-    try {
-      var endPoint =
-          'https://maps.googleapis.com/maps/api/geocode/json?latlng=${location?.latitude},${location?.longitude}&key=${widget.apiKey}&language=${widget.language}';
-      var response = jsonDecode((await http.get(endPoint,
-              headers: await LocationUtils.getAppHeaders()))
-          .body);
-
-      return response['results'][0]['formatted_address'];
-    } catch (e) {
-      print(e);
-    }
-
-    return null;
-  }
+  // Future<String> getAddress(LatLng location) async {
+  //   try {
+  //     var endPoint =
+  //         'https://maps.googleapis.com/maps/api/geocode/json?latlng=${location?.latitude},${location?.longitude}&key=${widget.apiKey}&language=${widget.language}';
+  //     var response = jsonDecode((await http.get(endPoint,
+  //             headers: await LocationUtils.getAppHeaders()))
+  //         .body);
+  //
+  //     return response['results'][0]['formatted_address'];
+  //   } catch (e) {
+  //     print(e);
+  //   }
+  //
+  //   return null;
+  // }
 
   Widget pin() {
     return IgnorePointer(
@@ -418,6 +429,7 @@ class _MapFabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: EdgeInsets.only(top:30),
       alignment: Alignment.topRight,
       margin: const EdgeInsets.only(top: kToolbarHeight + 24, right: 8),
       child: Column(
